@@ -1,0 +1,57 @@
+#! /usr/bin/env python
+
+from __future__ import absolute_import, print_function
+import sys
+
+if len(sys.argv) < 2:
+	print("find_user: missing user id")
+	exit()
+else:
+	user = sys.argv[1]
+
+import tweepy
+import time
+
+import yaml
+import os
+stream = open( os.path.expanduser('~') + "/.twittercl.yaml", "r")
+keys = yaml.load(stream)
+consumer_key=keys['consumer_key']
+consumer_secret=keys['consumer_secret']
+access_token=keys['access_token']
+access_token_secret=keys['access_token_secret']
+
+
+auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+auth.secure = True
+auth.set_access_token(access_token, access_token_secret)
+
+api = tweepy.API(auth)
+user = api.get_user(user).id
+
+def warning(*objs):
+    print("WARNING: ", *objs, file=sys.stderr)
+
+def get_followers(username):
+	c=-1
+	followers = []
+	while c!=0 :
+		followers = []
+		while len(followers) == 0:
+			try:
+				followers = api.followers_ids(username,cursor=c)
+			except tweepy.RateLimitError as e:
+				warning("Rate limite exhausted. sleeping..")
+				time.sleep(5*60)
+		if len(followers)>0:
+			for f in followers[0]:
+				yield f
+		c=followers[1][1]
+		print("getting next 5,000")
+		time.sleep(2)
+
+for u in get_followers(user):
+	print(str(user) + "\t" + str(u))
+
+
+
