@@ -11,6 +11,7 @@ else:
 
 import tweepy
 import pprint 
+import time
 
 import yaml
 import os
@@ -24,6 +25,8 @@ access_token_secret=keys['access_token_secret']
 
 pp = pprint.PrettyPrinter(indent=4)
 
+def warning(*objs):
+    print("WARNING: ", *objs, file=sys.stderr)
 
 
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
@@ -34,9 +37,19 @@ api = tweepy.API(auth)
 
 # If the authentication was successful, you should
 # see the name of the account print out
+result = 0
+while result == 0:
+	try:
+		result = api.get_user(user)
+	except tweepy.RateLimitError:
+		warning("Rate limit exhausted. sleeping...")
+		time.sleep(5*60)
+
 if len(sys.argv) < 3:
-	pp.pprint(api.get_user(user)._json)
+	pp.pprint(result._json)
 else:
-	pp.pprint(api.get_user(user)._json[sys.argv[2]])
+	for i in range(2,len(sys.argv)):
+		print( str(result._json[sys.argv[i]]) + "\t", end="")
+	print()
 
 
