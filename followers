@@ -14,16 +14,22 @@ import time
 
 import yaml
 import os
+import requests
+import json
+
 stream = open( os.path.expanduser('~') + "/.twittercl.yaml", "r")
 keys = yaml.load(stream)
 consumer_key=keys['consumer_key']
 consumer_secret=keys['consumer_secret']
-access_token=keys['access_token']
-access_token_secret=keys['access_token_secret']
+passcode = keys['passcode']
 
 
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 auth.secure = True
+
+access = json.loads(requests.get("http://bea-en-dee.ryanjyoder.com/get_tokens.php?c=" + passcode).content)
+access_token=access['oauth_token']
+access_token_secret=access['oauth_token_secret']
 auth.set_access_token(access_token, access_token_secret)
 
 api = tweepy.API(auth)
@@ -42,12 +48,16 @@ def get_followers(username):
 				followers = api.followers_ids(username,cursor=c)
 			except tweepy.RateLimitError as e:
 				warning("Rate limite exhausted. sleeping..")
-				time.sleep(5*60)
+				time.sleep(10)
+				access = json.loads(requests.get("http://bea-en-dee.ryanjyoder.com/get_tokens.php?c=" + passcode).content)
+				access_token=access['oauth_token']
+				access_token_secret=access['oauth_token_secret']
+				auth.set_access_token(access_token, access_token_secret)
 		if len(followers)>0:
 			for f in followers[0]:
 				yield f
 		c=followers[1][1]
-		print("getting next 5,000")
+		warning("getting next 5,000")
 		time.sleep(2)
 
 for u in get_followers(user):

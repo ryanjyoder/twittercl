@@ -9,21 +9,36 @@ if len(sys.argv) < 2:
 else:
 	user = sys.argv[1]
 
-import tweepy
+import couchdb
 import pprint 
+pp = pprint.PrettyPrinter(indent=4)
+
+s=couchdb.Server()
+db=s['twitter']
+u=db.get(user)
+if u:
+	pp.pprint(dict(u))
+	exit()
+
+result=db.view('lookups/screen_name', wrapper=None)
+for u in result[user.lower()]:
+	pp.pprint(dict(db[u.id]))
+	exit()
+
+
+import tweepy
 import time
 
 import yaml
 import os
+import requests
+import json
 stream = open( os.path.expanduser('~') + "/.twittercl.yaml", "r")
 keys = yaml.load(stream)
 consumer_key=keys['consumer_key']
 consumer_secret=keys['consumer_secret']
-access_token=keys['access_token']
-access_token_secret=keys['access_token_secret']
+passcode = keys['passcode']
 
-
-pp = pprint.PrettyPrinter(indent=4)
 
 def warning(*objs):
     print("WARNING: ", *objs, file=sys.stderr)
@@ -31,6 +46,10 @@ def warning(*objs):
 
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 auth.secure = True
+
+access = json.loads(requests.get("http://bea-en-dee.ryanjyoder.com/get_tokens.php?c=" + passcode).content)
+access_token=access['oauth_token']
+access_token_secret=access['oauth_token_secret']
 auth.set_access_token(access_token, access_token_secret)
 
 api = tweepy.API(auth)
@@ -43,7 +62,16 @@ while result == 0:
 		result = api.get_user(user)
 	except tweepy.RateLimitError:
 		warning("Rate limit exhausted. sleeping...")
-		time.sleep(5*60)
+		time.sleep(10)
+		access = json.loads(requests.get("http://bea-en-dee.ryanjyoder.com/get_tokens.php?c=" + passcode).content)
+		access_token=access['oauth_token']
+		access_token_secret=access['oauth_token_secret']
+		auth.set_access_token(access_token, access_token_secret)
+
+j = result._json
+j['type'] = 'user'
+j['_id'] = j['id_str']
+db.save(j)
 
 if len(sys.argv) < 3:
 	pp.pprint(result._json)
